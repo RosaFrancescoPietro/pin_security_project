@@ -1,0 +1,177 @@
+services:
+
+  # =========================
+  # KAFKA BROKER (OFFICIAL APACHE IMAGE)
+  # =========================
+  kafka:
+    image: apache/kafka:3.7.0
+    hostname: kafka
+    container_name: kafka
+    ports:
+      - "9094:9094" # Porta per accesso esterno (localhost)
+    environment:
+      # ID del nodo e ruoli (Controller + Broker in un unico nodo)
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      
+      # Definizione dei Listener
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      
+      # Configurazioni per ambiente Single-Node (evita errori di replica)
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 1
+      
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      # Script nativi Apache si trovano in /opt/kafka/bin/
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list"]
+      interval: 10s
+      retries: 10
+      start_period: 15s
+    networks:
+      - pin-net
+
+  # =========================
+  # INIT KAFKA (TOPIC CREATION)
+  # =========================
+  init-kafka:
+    image: apache/kafka:3.7.0
+    container_name: init_kafka
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - pin-net
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      echo '🔥 INIT-KAFKA PARTITO (Apache Image)'
+      
+      # Creazione Topic (usando i path nativi Apache)
+      echo '🚀 Creo i topic...'
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic input-pins --partitions 1 --replication-factor 1
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic enriched-pins --partitions 1 --replication-factor 1
+      
+      echo '✅ INIT-KAFKA TERMINATO CON SUCCESSO'
+      "
+
+  # =========================
+  # INIT KIBANA
+  # =========================
+  init-kibana:
+    image: curlimages/curl:8.5.0
+    container_name: init_kibana
+    depends_on:
+      - kibana
+    networks:
+      - pin-net
+    volumes:
+      - ./kibana/dashboards.ndjson:/dashboards.ndjson:ro
+      - ./kibana/init_kibana.sh:/init_kibana.sh:ro
+    entrypoint: ["/bin/sh", "/init_kibana.sh"]
+
+  # =========================
+  # ELASTICSEARCH
+  # =========================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      retries: 30
+    networks:
+      - pin-net
+
+  # =========================
+  # KIBANA
+  # =========================
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.1
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    volumes:
+      - kibana_data:/usr/share/kibana/data
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - pin-net
+
+  # =========================
+  # TELEGRAM BOT
+  # =========================
+  telegram-bot:
+    build: ./bot
+    container_name: pin_bot
+    restart: always
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - KAFKA_BROKER=kafka:9092
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      init-kafka:
+        condition: service_completed_successfully
+    networks:
+      - pin-net
+
+  # =========================
+  # SPARK STREAMING
+  # =========================
+  spark-processor:
+    build: ./spark
+    container_name: spark_processor
+    restart: on-failure
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - ELASTIC_HOST=elasticsearch
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      init-kafka:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - pin-net
+  
+    command: >
+      sh -c "sleep 5 &&
+      /opt/spark/bin/spark-submit
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.2,org.elasticsearch:elasticsearch-spark-30_2.12:8.11.1
+      /opt/spark/work-dir/processor.py"
+
+
+# =========================
+# VOLUMES
+# =========================
+volumes:
+  kafka_data:
+  es_data:
+  kibana_data:
+
+# =========================
+# NETWORK
+# =========================
+networks:
+  pin-net:
+    driver: bridge
