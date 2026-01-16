@@ -1,4 +1,4 @@
-#!/bin/sh
+
 set -e
 
 echo "🔥 INIT KIBANA START"
