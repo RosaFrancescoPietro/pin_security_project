@@ -1,4 +1,4 @@
-# USIAMO PYTHON 3.11 (Più nuovo, risolve il warning)
+
 FROM python:3.11-slim
 
 WORKDIR /app
