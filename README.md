@@ -20,7 +20,7 @@ Il progetto implementa una pipeline Lambda Architecture semplificata:
 ### Installazione
 1.  Clona la repository:
     ```bash
-    git clone [https://github.com/TUO_USERNAME/pin-security-project.git](https://github.com/TUO_USERNAME/pin-security-project.git)
+    git clone [https://github.com/RosaFrancescoPietro/pin-security-project.git](https://github.com/RosaFrancescoPietro/pin-security-project.git)
     cd pin-security-project
     ```
 
