@@ -1,6 +1,5 @@
 import os
 from pyspark.sql import SparkSession
-# ⚠️ IMPORTANTE: Aggiunto current_timestamp
 from pyspark.sql.functions import col, from_json, udf, struct, to_json, current_timestamp
 from pyspark.sql.types import StringType, StructType, StructField, IntegerType, DoubleType
 
@@ -73,7 +72,7 @@ df_processed = df_parsed.withColumn("safety", safety_udf(col("pin"))) \
         col("safety.score").alias("score"),
         col("safety.status").alias("status"),
         col("location"),
-        col("timestamp") # 🔑 Per i grafici temporali
+        col("timestamp") 
     )
 
 # Output Elasticsearch
