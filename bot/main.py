@@ -61,7 +61,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(MESSAGES_TEMPLATE["error_no_pin"])
         return
 
-    await update.message.reply_text(MESSAGES_TEMPLATE["wait"]) # Feedback immediato (senza edit per semplicità)
+    await update.message.reply_text(MESSAGES_TEMPLATE["wait"]) 
     
     # Recupero coordinate (se presenti)
     lat = context.user_data.get('lat')
@@ -118,7 +118,7 @@ if __name__ == '__main__':
         app = ApplicationBuilder().token(TELEGRAM_TOKEN).post_init(post_init).build()
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CommandHandler("help", help_command))
-        app.add_handler(MessageHandler(filters.LOCATION, handle_location)) # Handler posizione
+        app.add_handler(MessageHandler(filters.LOCATION, handle_location)) 
         app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
         
         print("🚀 Bot Online (Geo Enabled).")
