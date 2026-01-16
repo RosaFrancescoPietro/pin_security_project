@@ -2,7 +2,7 @@
 
 Un sistema di **Big Data Analytics in Real-Time** che analizza la sicurezza dei PIN inviati via Telegram, geolocalizza le minacce e visualizza i risultati su una mappa interattiva.
 
-![Architecture Diagram](architecture.png)
+
 
 ## 🏗️ Architettura
 Il progetto implementa una pipeline Lambda Architecture semplificata:
@@ -63,5 +63,4 @@ Il progetto implementa una pipeline Lambda Architecture semplificata:
 * **Apache Spark 3.4.2**
 * **Elastic Stack 8.11** (Elasticsearch + Kibana)
 * **Docker Compose**# pin_security_project
-# pin_security_project
-# pin_security_project
+
